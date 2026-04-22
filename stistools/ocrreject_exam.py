@@ -32,12 +32,17 @@ __doc__ = """
     .. code-block:: python
 
        [{'rootname': 'odvkl1040',
+       'n_splits': 2,
+       'detector_box_fraction' : 0.0078125,
        'extr_fracs': array([0.31530762, 0.32006836]),
        'outside_fracs': array([0.00884673, 0.00810278]),
        'ratios': array([35.64113429, 39.50106762]),
+       'n_cr_pix': array([11787, 11052]),
        'avg_extr_frac': 0.31768798828125,
        'avg_outside_frac': 0.008474755474901575,
-       'avg_ratio': 37.486389928547126}]
+       'avg_ratio': 37.486389928547126,
+       'max_ratio': 39.501067615658364,
+       'max_ratio_ncr_pix': 11052}]
 
     .. image:: odvkl1040_stacked.png
       :width: 600
@@ -68,12 +73,12 @@ __doc__ = """
        -o PLOT_DIR  output directory to store diagnostic plots if plot=True. Defaults to data_dir.
        -i           option to create zoomable html plots instead of static pngs. Defaults to False and requires Plotly if True
 
-       v1.0; Written by Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024.
+       v1.2; Written by Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024/ April 2026.
     """
 
 __taskname__ = "ocrreject_exam"
-__version__  = "1.1"
-__vdate__    = "24-September-2025"
+__version__  = "1.2"
+__vdate__    = "22-April-2026"
 __author__   = "Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024."
 
 
@@ -119,6 +124,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
     results: list of dict
 
         - ``rootname``: obs_id
+        - ``n_splits``: number of splits in the observation
         - ``extr_fracs``: cosmic ray rejection rates in the extraction boxes for each CR-SPLIT
         - ``outside_fracs``: cosmic ray rejection rates outside the extraction boxes for each CR-SPLIT
         - ``ratios``: ``extr_fracs``/``outside_fracs``
@@ -253,7 +259,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             'extr_fracs'            : extr_fracs,
             'outside_fracs'         : outside_fracs,
             'ratios'                : ratios,
-            'n_cr_pix'              : [int(x) for x in total_cr_pixs],
+            'n_cr_pix'              : np.asarray(total_cr_pixs, dtype=int),
             'avg_extr_frac'         : avg_extr_frac,
             'avg_outside_frac'      : avg_outside_frac,
             'avg_ratio'             : avg_ratio,

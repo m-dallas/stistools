@@ -32,7 +32,7 @@ class TestOcrrejectExam(BaseSTIS):
                             'extr_fracs': np.array([0.31530762, 0.32006836]),
                             'outside_fracs': np.array([0.00884673, 0.00810278]), 
                             'ratios': np.array([35.64113429, 39.50106762]),
-                            'n_cr_pix': [11787, 11052],
+                            'n_cr_pix':np.array([11787, 11052]),
                             'avg_extr_frac': 0.31768798828125, 
                             'avg_outside_frac': 0.008474755474901575,
                             'avg_ratio': 37.486389928547126,
