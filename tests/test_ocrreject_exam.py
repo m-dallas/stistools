@@ -27,6 +27,8 @@ class TestOcrrejectExam(BaseSTIS):
             local_file = self.get_data("input", filename)
         
         expected_output = {'rootname': 'odvkl1040',
+                            'n_splits': 2,
+                            'detector_box_fraction' : 0.0078125,
                             'extr_fracs': np.array([0.31530762, 0.32006836]),
                             'outside_fracs': np.array([0.00884673, 0.00810278]), 
                             'ratios': np.array([35.64113429, 39.50106762]),

@@ -210,6 +210,8 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             n_extr = np.count_nonzero(extr_mask) # number of pixels inside the extraction box
             n_outside = np.count_nonzero(outside_mask) # number of pixels outside the extraction box
 
+            detector_box_fraction = float(n_extr/(n_extr+n_outside)) # fraction of the detector taken up by the extraction box, used for calculating probability of overflagging
+
             total_cr_pixs = []
             for i, hdu in enumerate(flt_hdul):
                 if hdu.name == 'SCI':
@@ -242,17 +244,21 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
         max_ratio = float(np.max(ratios)) # Max ratio of the stack which can catch cases where only one split is overflagged
 
+        n_splits = len(extr_fracs) # Number of splits, works for cr-splits and nrptexps because it just counts the number of flt sci extensions 
+
         results = {
-            'rootname'         : obs_id,
-            'extr_fracs'       : extr_fracs,
-            'outside_fracs'    : outside_fracs,
-            'ratios'           : ratios,
-            'n_cr_pix'         : [int(x) for x in total_cr_pixs],
-            'avg_extr_frac'    : avg_extr_frac,
-            'avg_outside_frac' : avg_outside_frac,
-            'avg_ratio'        : avg_ratio,
-            'max_ratio'        : max_ratio,
-            'max_ratio_ncr_pix': int(total_cr_pixs[np.argmax(ratios)]),}
+            'rootname'              : obs_id,
+            'n_splits'              : n_splits, 
+            'detector_box_fraction' : detector_box_fraction,
+            'extr_fracs'            : extr_fracs,
+            'outside_fracs'         : outside_fracs,
+            'ratios'                : ratios,
+            'n_cr_pix'              : [int(x) for x in total_cr_pixs],
+            'avg_extr_frac'         : avg_extr_frac,
+            'avg_outside_frac'      : avg_outside_frac,
+            'avg_ratio'             : avg_ratio,
+            'max_ratio'             : max_ratio,
+            'max_ratio_ncr_pix'     : int(total_cr_pixs[np.argmax(ratios)]),}
 
         if plot and (not interactive or not HAS_PLOTLY): # case with interactive == False
             if not HAS_PLOTLY and interactive:
