@@ -122,10 +122,13 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
         - ``extr_fracs``: cosmic ray rejection rates in the extraction boxes for each CR-SPLIT
         - ``outside_fracs``: cosmic ray rejection rates outside the extraction boxes for each CR-SPLIT
         - ``ratios``: ``extr_fracs``/``outside_fracs``
+        - ``n_cr_pix``: number of pixels flagged as CR in each split
         - ``avg_extr_frac``: The average of ``extr_fracs``
         - ``avg_outside_frac``: The average of ``outside_fracs``
         - ``avg_ratio``: ``avg_extr_frac``/``avg_outside_frac``
-        
+        - ``max_ratio``: The maximum value of ``ratios``
+        - ``max_ratio_ncr_pix``: The number of cosmic ray flagged pixels for the split with the maximum ratio
+
     If called from the command line, prints the avg extraction, outside, and ratio values for quick verification.
     """
     if isinstance(obs_ids, (str,)):
@@ -207,6 +210,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             n_extr = np.count_nonzero(extr_mask) # number of pixels inside the extraction box
             n_outside = np.count_nonzero(outside_mask) # number of pixels outside the extraction box
 
+            total_cr_pixs = []
             for i, hdu in enumerate(flt_hdul):
                 if hdu.name == 'SCI':
                     exposure_times.append(hdu.header['EXPTIME'])
@@ -220,6 +224,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
                     extr_cr_count = np.count_nonzero(extr_rej_pix)
                     outside_cr_count = np.count_nonzero(outside_rej_pix)
+                    total_cr_pixs.append(extr_cr_count + outside_cr_count) # number of pixels flagged as CR in each frame
 
                     extr_fracs.append(extr_cr_count / n_extr)
                     outside_fracs.append(outside_cr_count / n_outside)
@@ -235,14 +240,19 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
         avg_outside_frac = float(np.sum(outside_fracs) / len(outside_fracs)) # Average fraction of crs outside extraction box
         avg_ratio = float(avg_extr_frac / avg_outside_frac) # Average ratio of the stack
 
+        max_ratio = float(np.max(ratios)) # Max ratio of the stack which can catch cases where only one split is overflagged
+
         results = {
             'rootname'         : obs_id,
             'extr_fracs'       : extr_fracs,
             'outside_fracs'    : outside_fracs,
             'ratios'           : ratios,
+            'n_cr_pix'         : [int(x) for x in total_cr_pixs],
             'avg_extr_frac'    : avg_extr_frac,
             'avg_outside_frac' : avg_outside_frac,
-            'avg_ratio'        : avg_ratio,}
+            'avg_ratio'        : avg_ratio,
+            'max_ratio'        : max_ratio,
+            'max_ratio_ncr_pix': int(total_cr_pixs[np.argmax(ratios)]),}
 
         if plot and (not interactive or not HAS_PLOTLY): # case with interactive == False
             if not HAS_PLOTLY and interactive:
