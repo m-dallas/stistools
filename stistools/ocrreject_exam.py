@@ -88,7 +88,7 @@ class BoxExtended(Exception):
         super().__init__(message)
 
 
-def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive=False, verbose=False, alpha=0.05):
+def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive=False, verbose=False, alpha=0.01):
     """Compares the rate of cosmic rays in the extraction box and everywhere else 
     in a CCD spectroscopic image. Based on crrej_exam from `STIS ISR 2019-02 
     <https://www.stsci.edu/files/live/sites/www/files/home/hst/instrumentation/stis/documentation/instrument-science-reports/_documents/201902.pdf>`_.
@@ -120,7 +120,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
         Option to print some results
     
     alpha: float
-        The desired probability threshold for determining if a ratio is likely to be due to overflagging. Default is 0.05, (a 5% chance)
+        The desired probability threshold for determining if a ratio is likely to be due to overflagging. Default is 0.01, (a 1% chance of occurring by random chance if CRs are randomly distributed across the detector).
 
     Returns
     -------
