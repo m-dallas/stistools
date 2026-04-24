@@ -5,6 +5,7 @@ import warnings
 import argparse
 
 import numpy as np
+from scipy.stats import binom
 from astropy.io import fits
 import matplotlib
 from matplotlib import cm as colormap
@@ -87,8 +88,7 @@ class BoxExtended(Exception):
         super().__init__(message)
 
 
-def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive=False,
-                   verbose=False):
+def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive=False, verbose=False, alpha=0.05):
     """Compares the rate of cosmic rays in the extraction box and everywhere else 
     in a CCD spectroscopic image. Based on crrej_exam from `STIS ISR 2019-02 
     <https://www.stsci.edu/files/live/sites/www/files/home/hst/instrumentation/stis/documentation/instrument-science-reports/_documents/201902.pdf>`_.
@@ -118,6 +118,9 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
     verbose: bool
         Option to print some results
+    
+    alpha: float
+        The desired probability threshold for determining if a ratio is likely to be due to overflagging. Default is 0.05, (a 5% chance)
 
     Returns
     -------
@@ -252,6 +255,8 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
         n_splits = len(extr_fracs) # Number of splits, works for cr-splits and nrptexps because it just counts the number of flt sci extensions 
 
+        overlagged_max_ratio = prob_overflagged(max_ratio_ncr_pix=int(total_cr_pixs[np.argmax(ratios)]), detector_box_fraction=detector_box_fraction, n_cr_splits=n_splits, alpha=alpha)
+
         results = {
             'rootname'              : obs_id,
             'n_splits'              : n_splits, 
@@ -264,7 +269,9 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             'avg_outside_frac'      : avg_outside_frac,
             'avg_ratio'             : avg_ratio,
             'max_ratio'             : max_ratio,
-            'max_ratio_ncr_pix'     : int(total_cr_pixs[np.argmax(ratios)]),}
+            'max_ratio_ncr_pix'     : int(total_cr_pixs[np.argmax(ratios)]),
+            'overflagged_max_ratio' : float(overlagged_max_ratio),
+            'likely_overflagged'    : bool(max_ratio >= overlagged_max_ratio),}
 
         if plot and (not interactive or not HAS_PLOTLY): # case with interactive == False
             if not HAS_PLOTLY and interactive:
@@ -296,6 +303,39 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
     return result_list
 
+# Probability funtion
+def prob_overflagged(max_ratio_ncr_pix, detector_box_fraction, n_cr_splits, alpha):
+    """Returns the max ratio which has a given probability (determined by alpha) of occuring under the null hypothesis that the CRs are randomly distributed across the detector.
+
+    Parameters
+    ----------
+    max_ratio_ncr_pix: float
+        The number of cosmic ray flagged pixels in the split with the maximum ratio of extraction box to outside the box.
+
+    detector_box_fraction: float
+        The portion of the readout area taken up by the extraction box.
+
+    n_cr_splits: int
+        The number of CR-splits or nrptexps, used to correct the probability for multiple comparisons since the max ratio is more likely to be high just by chance if there are more splits. 
+
+    alpha: float
+        The desired probability threshold for determining if a ratio is likely to be due to overflagging.
+    
+    Returns
+    -------
+    crit_ratio: float
+        The maximum ratio of extraction box to outside the box that would be expected to occur with a probability of alpha. Ratios above this are likely overflagging.
+
+    """
+    
+    alpha_adjusted = alpha / n_cr_splits # adjust alpha for multiple comparisons using Bonferroni correction
+
+    ncr_pix_inside_crit = binom.isf(alpha_adjusted, max_ratio_ncr_pix, detector_box_fraction) + 1 # number of CR pix in the extraction box which would have an adjusted probability of adjusted_alpha. +1 because the inverse survival function gives probability of > and we want >=
+    ncr_pix_outside_crit = max_ratio_ncr_pix - ncr_pix_inside_crit # number of CR pix outside the extraction box 
+
+    crit_ratio = (ncr_pix_inside_crit / ncr_pix_outside_crit) * ((1 - detector_box_fraction) / detector_box_fraction)
+
+    return crit_ratio
 
 # Plotting-specific functions:
 def _gen_color(cmap, n):
