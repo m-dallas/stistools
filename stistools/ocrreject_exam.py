@@ -137,6 +137,8 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
         - ``avg_ratio``: ``avg_extr_frac``/``avg_outside_frac``
         - ``max_ratio``: The maximum value of ``ratios``
         - ``max_ratio_ncr_pix``: The number of cosmic ray flagged pixels for the split with the maximum ratio
+        - ``overflagged_max_ratio``: The maximum ratio threshold for determining overflagging set by alpha
+        - ``likely_overflagged``: Boolean indicating if the observation is likely overflagged set by alpha
 
     If called from the command line, prints the avg extraction, outside, and ratio values for quick verification.
     """
