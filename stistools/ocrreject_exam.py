@@ -43,7 +43,9 @@ __doc__ = """
        'avg_outside_frac': 0.008474755474901575,
        'avg_ratio': 37.486389928547126,
        'max_ratio': 39.501067615658364,
-       'max_ratio_ncr_pix': 11052}]
+       'max_ratio_ncr_pix': 11052,
+       'overflagged_max_ratio': 1.30018281535649,
+       'likely_overflagged': True}]
 
     .. image:: odvkl1040_stacked.png
       :width: 600
