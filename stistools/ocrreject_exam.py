@@ -259,7 +259,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
         n_splits = len(extr_fracs) # Number of splits, works for cr-splits and nrptexps because it just counts the number of flt sci extensions 
 
-        overlagged_max_ratio = prob_overflagged(max_ratio_ncr_pix=int(total_cr_pixs[np.argmax(ratios)]), detector_box_fraction=detector_box_fraction, n_cr_splits=n_splits, alpha=alpha)
+        avg_ratio_crit, max_ratio_crit = prob_overflagged(all_ncr_pix=int(np.sum(total_cr_pixs)), max_ratio_ncr_pix=int(total_cr_pixs[np.argmax(ratios)]), detector_box_fraction=detector_box_fraction, n_cr_splits=n_splits, alpha=alpha)
 
         results = {
             'rootname'              : obs_id,
@@ -268,14 +268,16 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             'extr_fracs'            : extr_fracs,
             'outside_fracs'         : outside_fracs,
             'ratios'                : ratios,
-            'n_cr_pix'              : np.asarray(total_cr_pixs, dtype=int),
             'avg_extr_frac'         : avg_extr_frac,
             'avg_outside_frac'      : avg_outside_frac,
             'avg_ratio'             : avg_ratio,
+            'n_cr_pix'              : np.asarray(total_cr_pixs, dtype=int),
+            'overflagged_avg_ratio' : float(avg_ratio_crit),
+            'avg_likely_overflagged': bool(avg_ratio >= avg_ratio_crit),
             'max_ratio'             : max_ratio,
             'max_ratio_ncr_pix'     : int(total_cr_pixs[np.argmax(ratios)]),
-            'overflagged_max_ratio' : float(overlagged_max_ratio),
-            'likely_overflagged'    : bool(max_ratio >= overlagged_max_ratio),}
+            'overflagged_max_ratio' : float(max_ratio_crit),
+            'max_likely_overflagged': bool(max_ratio >= max_ratio_crit),}
 
         if plot and (not interactive or not HAS_PLOTLY): # case with interactive == False
             if not HAS_PLOTLY and interactive:
@@ -308,11 +310,14 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
     return result_list
 
 # Probability funtion
-def prob_overflagged(max_ratio_ncr_pix, detector_box_fraction, n_cr_splits, alpha):
-    """Returns the max ratio which has a given probability (determined by alpha) of occuring under the null hypothesis that the CRs are randomly distributed across the detector.
+def prob_overflagged(all_ncr_pix, max_ratio_ncr_pix, detector_box_fraction, n_cr_splits, alpha):
+    """Returns the avg ratio, and max ratio, which have a given probability (determined by alpha) of occuring under the null hypothesis that the CRs are randomly distributed across the detector.
 
     Parameters
     ----------
+    all_ncr_pix: int
+        The total number of cosmic ray flagged pixels across all splits.
+    
     max_ratio_ncr_pix: float
         The number of cosmic ray flagged pixels in the split with the maximum ratio of extraction box to outside the box.
 
@@ -327,19 +332,27 @@ def prob_overflagged(max_ratio_ncr_pix, detector_box_fraction, n_cr_splits, alph
     
     Returns
     -------
-    crit_ratio: float
+    avg_ratio_crit: float
+        The average ratio of extraction box to outside the box that would be expected to occur with a probability of alpha. Ratios above this are likely overflagging.
+
+    max_ratio_crit_ratio: float
         The maximum ratio of extraction box to outside the box that would be expected to occur with a probability of alpha. Ratios above this are likely overflagging.
 
     """
     
+    # Average ratio probability
+    avg_ratio_ncr_pix_inside_crit = binom.isf(alpha, all_ncr_pix, detector_box_fraction) + 1
+    avg_ratio_ncr_pix_outside_crit = all_ncr_pix - avg_ratio_ncr_pix_inside_crit
+    avg_ratio_crit = (avg_ratio_ncr_pix_inside_crit / avg_ratio_ncr_pix_outside_crit) * ((1 - detector_box_fraction) / detector_box_fraction)
+
+    # Max ratio probability
     alpha_adjusted = alpha / n_cr_splits # adjust alpha for multiple comparisons using Bonferroni correction
 
-    ncr_pix_inside_crit = binom.isf(alpha_adjusted, max_ratio_ncr_pix, detector_box_fraction) + 1 # number of CR pix in the extraction box which would have an adjusted probability of adjusted_alpha. +1 because the inverse survival function gives probability of > and we want >=
-    ncr_pix_outside_crit = max_ratio_ncr_pix - ncr_pix_inside_crit # number of CR pix outside the extraction box 
+    max_ratio_ncr_pix_inside_crit = binom.isf(alpha_adjusted, max_ratio_ncr_pix, detector_box_fraction) + 1 # number of CR pix in the extraction box in the max split which would have an adjusted probability of adjusted_alpha. +1 because the inverse survival function gives probability of > and we want >=
+    max_ratio_ncr_pix_outside_crit = max_ratio_ncr_pix - max_ratio_ncr_pix_inside_crit # number of CR pix outside the extraction box 
+    max_ratio_crit_ratio = (max_ratio_ncr_pix_inside_crit / max_ratio_ncr_pix_outside_crit) * ((1 - detector_box_fraction) / detector_box_fraction)
 
-    crit_ratio = (ncr_pix_inside_crit / ncr_pix_outside_crit) * ((1 - detector_box_fraction) / detector_box_fraction)
-
-    return crit_ratio
+    return avg_ratio_crit, max_ratio_crit_ratio
 
 # Plotting-specific functions:
 def _gen_color(cmap, n):
