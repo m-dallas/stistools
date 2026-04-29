@@ -38,14 +38,16 @@ __doc__ = """
        'extr_fracs': array([0.31530762, 0.32006836]),
        'outside_fracs': array([0.00884673, 0.00810278]),
        'ratios': array([35.64113429, 39.50106762]),
-       'n_cr_pix': array([11787, 11052]),
        'avg_extr_frac': 0.31768798828125,
        'avg_outside_frac': 0.008474755474901575,
        'avg_ratio': 37.486389928547126,
+       'n_cr_pix': array([11787, 11052]),
+       'overflagged_avg_ratio': 1.1842407636556478,
+       'avg_likely_overflagged': True,
        'max_ratio': 39.501067615658364,
        'max_ratio_ncr_pix': 11052,
        'overflagged_max_ratio': 1.30018281535649,
-       'likely_overflagged': True}]
+       'max_likely_overflagged': True}]
 
     .. image:: odvkl1040_stacked.png
       :width: 600
@@ -133,14 +135,16 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
         - ``extr_fracs``: cosmic ray rejection rates in the extraction boxes for each CR-SPLIT
         - ``outside_fracs``: cosmic ray rejection rates outside the extraction boxes for each CR-SPLIT
         - ``ratios``: ``extr_fracs``/``outside_fracs``
-        - ``n_cr_pix``: number of pixels flagged as CR in each split
         - ``avg_extr_frac``: The average of ``extr_fracs``
         - ``avg_outside_frac``: The average of ``outside_fracs``
         - ``avg_ratio``: ``avg_extr_frac``/``avg_outside_frac``
+        - ``n_cr_pix``: number of pixels flagged as CR in each split
+        - ``overflagged_avg_ratio``: The average ratio threshold for determining overflagging set by alpha
+        - ``avg_likely_overflagged``: Boolean indicating if the observation is likely overflagged set by alpha based on the avg ratio
         - ``max_ratio``: The maximum value of ``ratios``
         - ``max_ratio_ncr_pix``: The number of cosmic ray flagged pixels for the split with the maximum ratio
         - ``overflagged_max_ratio``: The maximum ratio threshold for determining overflagging set by alpha
-        - ``likely_overflagged``: Boolean indicating if the observation is likely overflagged set by alpha
+        - ``max_likely_overflagged``: Boolean indicating if the observation is likely overflagged set by alpha based on the max ratio
 
     If called from the command line, prints the avg extraction, outside, and ratio values for quick verification.
     """
@@ -346,7 +350,7 @@ def prob_overflagged(all_ncr_pix, max_ratio_ncr_pix, detector_box_fraction, n_cr
     avg_ratio_crit = (avg_ratio_ncr_pix_inside_crit / avg_ratio_ncr_pix_outside_crit) * ((1 - detector_box_fraction) / detector_box_fraction)
 
     # Max ratio probability
-    alpha_adjusted = alpha / n_cr_splits # adjust alpha for multiple comparisons using Bonferroni correction
+    alpha_adjusted = alpha / n_cr_splits # adjust alpha for multiple comparisons using Bonferroni correction since you're more likely to get a high ratio just by chance if you have more splits
 
     max_ratio_ncr_pix_inside_crit = binom.isf(alpha_adjusted, max_ratio_ncr_pix, detector_box_fraction) + 1 # number of CR pix in the extraction box in the max split which would have an adjusted probability of adjusted_alpha. +1 because the inverse survival function gives probability of > and we want >=
     max_ratio_ncr_pix_outside_crit = max_ratio_ncr_pix - max_ratio_ncr_pix_inside_crit # number of CR pix outside the extraction box 
