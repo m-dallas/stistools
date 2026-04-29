@@ -340,7 +340,7 @@ def prob_overflagged(all_ncr_pix, max_ratio_ncr_pix, detector_box_fraction, n_cr
     avg_ratio_crit: float
         The average ratio of extraction box to outside the box that would be expected to occur with a probability of alpha. Ratios above this are likely overflagging.
 
-    max_ratio_crit_ratio: float
+    max_ratio_crit: float
         The maximum ratio of extraction box to outside the box that would be expected to occur with a probability of alpha. Ratios above this are likely overflagging.
 
     """
@@ -355,9 +355,9 @@ def prob_overflagged(all_ncr_pix, max_ratio_ncr_pix, detector_box_fraction, n_cr
 
     max_ratio_ncr_pix_inside_crit = binom.isf(alpha_adjusted, max_ratio_ncr_pix, detector_box_fraction) + 1 # number of CR pix in the extraction box in the max split which would have an adjusted probability of adjusted_alpha. +1 because the inverse survival function gives probability of > and we want >=
     max_ratio_ncr_pix_outside_crit = max_ratio_ncr_pix - max_ratio_ncr_pix_inside_crit # number of CR pix outside the extraction box 
-    max_ratio_crit_ratio = (max_ratio_ncr_pix_inside_crit / max_ratio_ncr_pix_outside_crit) * ((1 - detector_box_fraction) / detector_box_fraction)
+    max_ratio_crit = (max_ratio_ncr_pix_inside_crit / max_ratio_ncr_pix_outside_crit) * ((1 - detector_box_fraction) / detector_box_fraction)
 
-    return avg_ratio_crit, max_ratio_crit_ratio
+    return avg_ratio_crit, max_ratio_crit
 
 # Plotting-specific functions:
 def _gen_color(cmap, n):
