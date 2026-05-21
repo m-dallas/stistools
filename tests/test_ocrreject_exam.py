@@ -37,12 +37,8 @@ class TestOcrrejectExam(BaseSTIS):
                             'avg_outside_frac': 0.008474755474901575,
                             'avg_ratio': 37.486389928547126,
                             'n_total_cr_pix': 22839,
-                            'overflagged_avg_ratio': 1.1842407636556478,
-                            'avg_likely_overflagged': True,
-                            'max_ratio': 39.501067615658364,
-                            'max_ratio_ncr_pix': 11052,
-                            'overflagged_max_ratio': 1.30018281535649,
-                            'max_likely_overflagged': True}
+                            'avg_ratio_threshold': 1.1842407636556478,
+                            'avg_likely_overflagged': True}
 
         resulting_output = ocrreject_exam('odvkl1040', data_dir=os.path.dirname(local_file))
 
