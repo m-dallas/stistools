@@ -471,8 +471,8 @@ def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, prop
                 ax2.set_title('full image already 20 pixels above/below extraction box')
 
             cb = fig.colorbar(colormap.ScalarMappable(norm=norm, cmap=cmap), cax=ax3,
-                label='# times flagged as CR', ticks=np.arange(1, max_stack_value+1)+0.5)
-            cb.set_ticklabels(np.arange(1, max_stack_value+1))
+                label='# times flagged as CR', ticks=np.arange(0, max_stack_value+1)+0.5)
+            cb.set_ticklabels(np.arange(0, max_stack_value+1))
 
             fig.suptitle(f"CR flagged pixels in stacked image: {obs_id}\n Proposal {propid!s}, " \
                         f"exposure time {texpt:.2f}, {split_num!s} subexposures")
