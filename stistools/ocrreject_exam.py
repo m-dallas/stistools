@@ -34,20 +34,14 @@ __doc__ = """
 
        [{'rootname': 'odvkl1040',
        'n_splits': 2,
-       'detector_box_fraction' : 0.0078125,
-       'extr_fracs': array([0.31530762, 0.32006836]),
-       'outside_fracs': array([0.00884673, 0.00810278]),
-       'ratios': array([35.64113429, 39.50106762]),
-       'avg_extr_frac': 0.31768798828125,
-       'avg_outside_frac': 0.008474755474901575,
-       'avg_ratio': 37.486389928547126,
+       'detector_box_fraction' : 0.0068359375,
        'n_cr_pix': array([11787, 11052]),
-       'overflagged_avg_ratio': 1.1842407636556478,
-       'avg_likely_overflagged': True,
-       'max_ratio': 39.501067615658364,
-       'max_ratio_ncr_pix': 11052,
-       'overflagged_max_ratio': 1.30018281535649,
-       'max_likely_overflagged': True}]
+       'n_total_cr_pix': 22839,
+       'extr_fracs': array([0.36021205, 0.36063058]),
+       'outside_fracs': array([0.00883899, 0.00813034]),
+       'combined_ratio': 42.479135678716936,
+       'combined_ratio_threshold': 1.2576072075255045,
+       'overflagged_stat': True}]
 
     .. image:: odvkl1040_stacked.png
       :width: 600
@@ -78,12 +72,12 @@ __doc__ = """
        -o PLOT_DIR  output directory to store diagnostic plots if plot=True. Defaults to data_dir.
        -i           option to create zoomable html plots instead of static pngs. Defaults to False and requires Plotly if True
 
-       v1.2; Written by Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024/ April 2026.
+       v1.2; Written by Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024/ May 2026.
     """
 
 __taskname__ = "ocrreject_exam"
 __version__  = "1.2"
-__vdate__    = "22-April-2026"
+__vdate__    = "01-May-2026"
 __author__   = "Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024."
 
 
@@ -135,17 +129,16 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
         - ``rootname``: obs_id
         - ``n_splits``: number of splits in the observation
+        - ``detector_box_fraction``: fraction of the detector taken up by the extraction box
+        - ``n_cr_pix``: number of pixels flagged as CR in each split
+        - ``n_total_cr_pix``: total number of pixels flagged as CR across all splits
         - ``extr_fracs``: cosmic ray rejection rates in the extraction boxes for each CR-SPLIT
         - ``outside_fracs``: cosmic ray rejection rates outside the extraction boxes for each CR-SPLIT
-        - ``ratios``: ``extr_fracs``/``outside_fracs``
-        - ``avg_extr_frac``: The average of ``extr_fracs``
-        - ``avg_outside_frac``: The average of ``outside_fracs``
-        - ``avg_ratio``: ``avg_extr_frac``/``avg_outside_frac``
-        - ``n_cr_pix``: number of pixels flagged as CR in each split
-        - ``avg_ratio_threshold``: The maximum avg_ratio set by alpha under the null hypothesis of randomly distributed CRs 
-        - ``avg_likely_overflagged``: Boolean indicating if the observation is likely overflagged set by alpha based on the avg ratio
+        - ``combined_ratio``: cosmic ray rejection rate inside the extraction box divided by the rate outside it, combined across all splits (avg_extr_frac/avg_outside_frac)
+        - ``combined_ratio_threshold``: the maximum combined_ratio set by alpha under the null hypothesis of randomly distributed CRs 
+        - ``overflagged_stat``: boolean indicating if the observation is likely overflagged set by alpha based on the combined ratio
 
-    If called from the command line, prints the avg extraction, outside, and ratio values for quick verification.
+    If called from the command line, prints the combined extraction, outside, and ratio values for quick verification similar to the older method shown in STIS ISR 2019-02 Appendix A.
     """
     if isinstance(obs_ids, (str,)):
         obs_ids = [obs_ids]
@@ -198,10 +191,10 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
         # If all checks above passed, calculate cr fraction in and out of the extraction box
         spec = fits.getdata(sx1_file, ext=1)[0]
 
-        extrlocy = spec['EXTRLOCY'] - 1 # y coords of the middle of the extraction box
+        extrlocy = spec['EXTRLOCY'] - 1 # y coords of the middle of the extraction box shifted to 0 indexed
         del_pix = spec['EXTRSIZE'] / 2. # value the extraction box extends above or below extrlocy
-        box_upper = np.ceil(extrlocy + del_pix).astype(int) # Ints of pixel values above end of trace bc python is upper bound exclusive
-        box_lower = np.floor(extrlocy - del_pix).astype(int) # Ints of pixel values below end of trace
+        box_lower = np.ceil(extrlocy - del_pix).astype(int) # Ints of pixel values below end of trace
+        box_upper = np.floor(extrlocy + del_pix).astype(int)+1 # Ints of pixel values above end of trace 
 
         # Fill each of these lists with values for each cr split
         extr_fracs = [] # fraction of pixels flagged as cr inside the extraction box for each split
@@ -213,7 +206,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             flt_shape = flt_hdul['sci', 1].data.shape # shape of the data
 
             # Check that the extraction box doesn't extend beyond the image: this breaks the method
-            if np.any(box_lower < 0) or np.any(box_upper - 1 > flt_shape[0]): # Subtract 1 because the box extends to the value of the pixel before
+            if np.any(box_lower < 0) or np.any(box_upper > flt_shape[0]): 
                 raise BoxExtended(f"Extraction box coords extend above or below the cosmic ray subexposures for {propid}")
 
             extr_mask = np.zeros(flt_shape)
@@ -252,30 +245,26 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
         extr_fracs = np.asarray(extr_fracs)
         outside_fracs = np.asarray(outside_fracs)
-        ratios = extr_fracs / outside_fracs # ratio of extraction to outside the box in each image
 
         avg_extr_frac = float(np.sum(extr_fracs) / len(extr_fracs)) # Average fraction of crs inside extraction box
         avg_outside_frac = float(np.sum(outside_fracs) / len(outside_fracs)) # Average fraction of crs outside extraction box
-        avg_ratio = float(avg_extr_frac / avg_outside_frac) # Average ratio of the stack
+        combined_ratio = float(avg_extr_frac / avg_outside_frac) # combined ratio of the stack
 
         n_splits = len(extr_fracs) # Number of splits, works for cr-splits and nrptexps because it just counts the number of flt sci extensions 
 
-        avg_ratio_crit = avg_ratio_threshold(all_ncr_pix=int(np.sum(total_cr_pixs)), detector_box_fraction=detector_box_fraction, alpha=alpha, cr_size=cr_size)
+        combined_ratio_crit = combined_ratio_threshold(all_ncr_pix=int(np.sum(total_cr_pixs)), detector_box_fraction=detector_box_fraction, alpha=alpha, cr_size=cr_size)
 
         results = {
             'rootname'              : obs_id,
             'n_splits'              : n_splits, 
             'detector_box_fraction' : detector_box_fraction,
             'n_cr_pix'              : np.asarray(total_cr_pixs, dtype=int),
+            'n_total_cr_pix'        : int(np.sum(total_cr_pixs)),
             'extr_fracs'            : extr_fracs,
             'outside_fracs'         : outside_fracs,
-            'ratios'                : ratios,
-            'avg_extr_frac'         : avg_extr_frac,
-            'avg_outside_frac'      : avg_outside_frac,
-            'avg_ratio'             : avg_ratio,
-            'n_total_cr_pix'        : int(np.sum(total_cr_pixs)),
-            'avg_ratio_threshold'   : float(avg_ratio_crit),
-            'avg_likely_overflagged': bool(avg_ratio >= avg_ratio_crit)}
+            'combined_ratio'        : combined_ratio,
+            'combined_ratio_threshold' : float(combined_ratio_crit),
+            'overflagged_stat': bool(combined_ratio >= combined_ratio_crit)}
 
         if plot and (not interactive or not HAS_PLOTLY): # case with interactive == False
             if not HAS_PLOTLY and interactive:
@@ -299,17 +288,17 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
         if verbose:
             print(f"\nFor {obs_id}")
-            print(f"Average across all extraction boxes: {results['avg_extr_frac']:.1%}")
-            print(f"Average across all external regions: {results['avg_outside_frac']:.1%}")
-            print(f"Average ratio between the two: {results['avg_ratio']:.2f}")
+            print(f"Average rejection across all extraction boxes: {avg_extr_frac:.1%}")
+            print(f"Average rejection across all external regions: {avg_outside_frac:.1%}")
+            print(f"Combined ratio between the two: {results['combined_ratio']:.2f}")
 
         result_list.append(results)
 
     return result_list
 
 # Probability funtion
-def avg_ratio_threshold(all_ncr_pix, detector_box_fraction, alpha, cr_size):
-    """Returns the largest avg ratio that can occur given a significance level alpha under the null hypothesis that the CRs are randomly distributed across the detector.
+def combined_ratio_threshold(all_ncr_pix, detector_box_fraction, alpha, cr_size):
+    """Returns the largest combined ratio that can occur given a significance level alpha under the null hypothesis that the CRs are randomly distributed across the detector.
 
     Parameters
     ----------
@@ -327,17 +316,17 @@ def avg_ratio_threshold(all_ncr_pix, detector_box_fraction, alpha, cr_size):
     
     Returns
     -------
-    avg_ratio_threshold: float
-        The maximum avg_ratio that can be observed within the significance level.
+    combined_ratio_threshold: float
+        The maximum combined_ratio that can be observed within the significance level.
 
     """
     
     ncr_hits_inside_threshold = binom.isf(alpha, int(round(all_ncr_pix/cr_size)), detector_box_fraction) + 1 # Max number of cr hits in the extraction box we can observe within alpha
     ncr_pix_inside_threshold = ncr_hits_inside_threshold*cr_size # convert back from hits to flagged pixels
     ncr_pix_outside_threshold = all_ncr_pix - ncr_pix_inside_threshold # number of cr flagged pixels remaining outside the extraction box
-    avg_ratio_threshold = (ncr_pix_inside_threshold / ncr_pix_outside_threshold) * ((1 - detector_box_fraction) / detector_box_fraction) # the corresponding avg_ratio
+    combined_ratio_threshold = (ncr_pix_inside_threshold / ncr_pix_outside_threshold) * ((1 - detector_box_fraction) / detector_box_fraction) # the corresponding combined_ratio
 
-    return avg_ratio_threshold
+    return combined_ratio_threshold
 
 # Plotting-specific functions:
 def _gen_color(cmap, n):
