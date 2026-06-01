@@ -72,11 +72,11 @@ __doc__ = """
        -o PLOT_DIR  output directory to store diagnostic plots if plot=True. Defaults to data_dir.
        -i           option to create zoomable html plots instead of static pngs. Defaults to False and requires Plotly if True
 
-       v1.2; Written by Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024/ May 2026.
+       v1.1; Written by Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024/ May 2026.
     """
 
 __taskname__ = "ocrreject_exam"
-__version__  = "1.2"
+__version__  = "1.1"
 __vdate__    = "01-May-2026"
 __author__   = "Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024."
 
@@ -471,8 +471,8 @@ def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, prop
                 ax2.set_title('full image already 20 pixels above/below extraction box')
 
             cb = fig.colorbar(colormap.ScalarMappable(norm=norm, cmap=cmap), cax=ax3,
-                label='# times flagged as CR', ticks=np.arange(max_stack_value, max_stack_value + 2) - 0.5)
-            cb.set_ticklabels(np.arange(max_stack_value, max_stack_value+2)-1)
+                label='# times flagged as CR', ticks=np.arange(1, max_stack_value+1)+0.5)
+            cb.set_ticklabels(np.arange(1, max_stack_value+1))
 
             fig.suptitle(f"CR flagged pixels in stacked image: {obs_id}\n Proposal {propid!s}, " \
                         f"exposure time {texpt:.2f}, {split_num!s} subexposures")
