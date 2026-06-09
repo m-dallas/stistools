@@ -193,10 +193,8 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
         extrlocy = spec['EXTRLOCY'] - 1 # y coords of the middle of the extraction box shifted to 0 indexed
         del_pix = spec['EXTRSIZE'] / 2. # value the extraction box extends above or below extrlocy
-        # box_lower = np.ceil(extrlocy - del_pix).astype(int) # Ints of pixel values at end of trace # JOLEEN'S VERSION
-        # box_upper = np.floor(extrlocy + del_pix).astype(int)+1 # Ints of pixel values above end of trace 
-        box_lower = np.floor((extrlocy - del_pix)+0.5).astype(int)  # POTENTIAL OTHER VERSION
-        box_upper = np.ceil((extrlocy + del_pix)-0.5).astype(int) +1 # POTENTIAL OTHER VERSION
+        box_lower = np.ceil(extrlocy - del_pix).astype(int) # Ints of pixel values at end of trace 
+        box_upper = np.floor(extrlocy + del_pix).astype(int)+1 # Ints of pixel values above end of trace (the +1 is to make it inclusive for python indexing) 
 
 
         # Fill each of these lists with values for each cr split
