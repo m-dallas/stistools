@@ -77,7 +77,7 @@ __doc__ = """
 
 __taskname__ = "ocrreject_exam"
 __version__  = "1.1"
-__vdate__    = "01-May-2026"
+__vdate__    = "10-June-2026"
 __author__   = "Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024."
 
 
@@ -86,7 +86,7 @@ class BoxExtended(Exception):
         super().__init__(message)
 
 
-def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive=False, verbose=False, alpha=0.00135, cr_size=1):
+def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive=False, verbose=False, alpha=0.00135, cr_size=2.4):
     """Compares the rate of cosmic rays in the extraction box and everywhere else 
     in a CCD spectroscopic image. Based on crrej_exam from `STIS ISR 2019-02 
     <https://www.stsci.edu/files/live/sites/www/files/home/hst/instrumentation/stis/documentation/instrument-science-reports/_documents/201902.pdf>`_.
@@ -186,7 +186,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             sci_num = len([hdu.name for hdu in flt_hdul if "SCI" in hdu.name]) # Counts the number of sci extensions
 
         if (crsplit_num * nrptexp_num - sci_num) != 0:
-            raise ValueError(f"cr-split or nrptexp value in flt header does not match the number of sci extentsions for {obs_id}")
+            raise ValueError(f"cr-split or nrptexp value in flt header does not match the number of sci extensions for {obs_id}")
 
         # If all checks above passed, calculate cr fraction in and out of the extraction box
         spec = fits.getdata(sx1_file, ext=1)[0]
@@ -208,7 +208,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
             # Check that the extraction box doesn't extend beyond the image: this breaks the method
             if np.any(box_lower < 0) or np.any(box_upper > flt_shape[0]): 
-                raise BoxExtended(f"Extraction box coords extend above or below the cosmic ray subexposures for {propid}")
+                raise BoxExtended(f"Extraction box coords extend above or below the cosmic ray subexposures for {obs_id}")
 
             extr_mask = np.zeros(flt_shape)
             outside_mask = np.ones(flt_shape)
@@ -287,7 +287,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             split_plot(cr_rejected_locs, box_lower, box_upper, len(cr_rejected_locs), exposure_times,
                 stacked_exposure_time, rootname, propid, plot_dir, interactive=interactive)
 
-        if verbose:
+        if verbose: # This replicates the functionality from STIS ISR 2019-02 Appendix A
             print(f"\nFor {obs_id}")
             print(f"Average rejection across all extraction boxes: {avg_extr_frac:.1%}")
             print(f"Average rejection across all external regions: {avg_outside_frac:.1%}")
@@ -297,7 +297,7 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
 
     return result_list
 
-# Probability funtion
+# Probability function
 def combined_ratio_threshold(all_ncr_pix, detector_box_fraction, alpha, cr_size):
     """Returns the largest combined ratio that can occur given a significance level alpha under the null hypothesis that the CRs are randomly distributed across the detector.
 
