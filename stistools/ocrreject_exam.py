@@ -490,6 +490,14 @@ def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, prop
 
     else:
         # Create Plotly image
+        margin = {'l': 60, 'r': 110, 't': 80, 'b': 60}
+        scale = min(1.0, 880 / stack_shape[1])
+        data_width = int(stack_shape[1] * scale)
+        data_height = max(int(stack_shape[0] * scale), 250)
+
+        cb_x = 1.02          # colorbar left edge, paper coords (Plotly's default)
+        cb_thickness = 30    # px; right edge = cb_x + cb_thickness/data_width
+
         fig = go.Figure()
 
         # calculate required x and y range, colorbar info, and figure titles
@@ -507,10 +515,9 @@ def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, prop
         file_path = os.path.join(plot_dir, plot_name)
 
         # add image of detector
-        fig.add_trace(go.Heatmap(z=stack_image, colorscale=dcolorsc, x=x, y=y, hoverinfo='text',
-                                 colorbar={'tickvals':tickvals, 'ticktext':ticktext,
-                                           'title':{'text':'# times flagged as CR', 'side':'right', 'font':{'size':18}}},
-                                 name=''))
+        fig.add_trace(go.Heatmap(z=stack_image, colorscale=dcolorsc, x=x, y=y, hoverinfo='text', 
+                                colorbar={'tickvals': tickvals, 'ticktext': ticktext, 'x': cb_x, 'xanchor': 'left', 'thickness': cb_thickness, 'len': 1, 
+                                'title': {'text': '# times flagged as CR', 'side': 'right', 'font': {'size': 18}}}, name=''))
 
         # add extraction box
         fig.add_trace(go.Scatter(x=np.arange(len(box_upper)), y=box_upper, mode="lines",
@@ -530,23 +537,31 @@ def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, prop
                           {'label':zoom_options[1]['label'], 'method':'relayout',
                            'args':[{'yaxis.range': zoom_options[1]['yaxis_range']}]}]
 
+        # Force it to sit at the top right
+        menu_x = cb_x + cb_thickness / data_width
         fig.update_layout(updatemenus=[{'type'       : 'dropdown',
                                         'direction'  : 'down',
                                         'buttons'    : button_options,
-                                        'pad'        : {'r':0, 't':0},
+                                        'pad'        : {'b': 6},
                                         'showactive' : True,
-                                        'x'          : 1.07,  # Position of the buttons; might require some more tweaking
+                                        'x'          : menu_x,
                                         'xanchor'    : 'right',
-                                        'y'          : 1.07,
-                                        'yanchor'    : 'top'}])
-
-        # Set the initial y-axis range (Full View)
+                                        'y'          : 1.0,
+                                        'yanchor'    : 'bottom'}])
+ 
+        # Set the initial axis ranges to match the full dropdown view
         fig.update_yaxes(range=[0, stack_shape[0]])
         fig.update_xaxes(range=[0, stack_shape[1]])
 
-        fig.update_layout(width=stack_shape[1] + 50,
-                          height=int(stack_shape[1] * stack_shape[1] / stack_shape[0]) ) # adds space for colorbar to not squeeze the x-axis
-        fig.update_layout(title={'text':title_text, 'x':0.5}, font={'family':'Arial, sans-serif', 'size':16})
+        fig_height = data_height + margin['t'] + margin['b']
+        fig.update_layout(width=data_width + margin['l'] + margin['r'],
+                          height=fig_height,
+                          margin=margin)
+        
+        # Pin the title a little below the top
+        title_y = 1 - 22/fig_height
+        fig.update_layout(title={'text':title_text, 'x':0.5, 'y':title_y, 'yanchor':'top'},
+                            font={'family':'Arial, sans-serif', 'size':16})
         fig.write_html(file_path)
 
 
