@@ -7,7 +7,6 @@ import argparse
 import numpy as np
 from scipy.stats import binom
 from astropy.io import fits
-import matplotlib
 from matplotlib import cm as colormap
 from matplotlib import colors
 from matplotlib import pyplot as plt
@@ -17,7 +16,6 @@ try:
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
-NON_INTERACTIVE_BACKENDS = {"agg", "pdf", "svg", "ps"}
 
 __doc__ = """
     Checks STIS CCD 1D spectroscopic data for cosmic ray overflagging.
@@ -72,7 +70,7 @@ __doc__ = """
        -o PLOT_DIR  output directory to store diagnostic plots if plot=True. Defaults to data_dir.
        -i           option to create zoomable html plots instead of static pngs. Defaults to False and requires Plotly if True
 
-       v1.1; Written by Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024/ May 2026.
+       v1.1; Written by Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024/ June 2026.
     """
 
 __taskname__ = "ocrreject_exam"
@@ -86,7 +84,7 @@ class BoxExtended(Exception):
         super().__init__(message)
 
 
-def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive=False, verbose=False, alpha=0.00135, cr_size=2.4):
+def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive=False, verbose=False, alpha=0.00135, cr_size=2.4, show_plot=False):
     """Compares the rate of cosmic rays in the extraction box and everywhere else 
     in a CCD spectroscopic image. Based on crrej_exam from `STIS ISR 2019-02 
     <https://www.stsci.edu/files/live/sites/www/files/home/hst/instrumentation/stis/documentation/instrument-science-reports/_documents/201902.pdf>`_.
@@ -108,20 +106,22 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
         Option to generate diagnostic plots, default=False
 
     plot_dir: str or None
-        Directory to save diagnostic plots in if plot=True. 
-        Defaults to data_dir parameter
+        Directory to save diagnostic plots in if plot=True, defaults to data_dir parameter
 
     interactive: bool
-        Option to generate zoomable html plots using plotly, default=False
+        Option to generate zoomable html plots using plotly if plot=True, default=False
 
     verbose: bool
-        Option to print some results
+        Option to print results to the terminal, default=False
     
     alpha: float
-        The desired significance level for rejecting the null hypothesis that the CRs are randomly distributed across the detector.
+        The desired significance level for rejecting the null hypothesis that the CRs are randomly distributed across the detector. Default=0.00135. 
 
     cr_size: float
-        The mean number of pixels each CR is assumed to hit. Effects the threshold ratio used to determine if the CR distribution is significantly different from random.
+        The mean number of pixels each CR is assumed to hit. Effects the threshold ratio used to determine if the CR distribution is significantly different from random. Default=2.4.
+
+    show_plot: bool
+        If True, when interactive=False show the generated plot in a notebook session in addition to saving. Default=False.
 
     Returns
     -------
@@ -195,7 +195,6 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
         del_pix = spec['EXTRSIZE'] / 2. # value the extraction box extends above or below extrlocy
         box_lower = np.ceil(extrlocy - del_pix).astype(int) # Ints of pixel values at end of trace 
         box_upper = np.floor(extrlocy + del_pix).astype(int)+1 # Ints of pixel values above end of trace (the +1 is to make it inclusive for python indexing) 
-
 
         # Fill each of these lists with values for each cr split
         extr_fracs = [] # fraction of pixels flagged as cr inside the extraction box for each split
@@ -275,17 +274,17 @@ def ocrreject_exam(obs_ids, data_dir='.', plot=False, plot_dir=None, interactive
             cr_rejected_stack = np.sum(cr_rejected_locs, axis=0) # stack all located crs on top of eachother
             stacked_exposure_time = sum(exposure_times)
             stack_plot(cr_rejected_stack, box_lower, box_upper, len(cr_rejected_locs), stacked_exposure_time,
-                rootname, propid, plot_dir, interactive=interactive)
+                rootname, propid, plot_dir, interactive=interactive, show_plot=show_plot)
             split_plot(cr_rejected_locs, box_lower, box_upper, len(cr_rejected_locs), exposure_times,
-                stacked_exposure_time, rootname, propid, plot_dir, interactive=interactive)
+                stacked_exposure_time, rootname, propid, plot_dir, interactive=interactive, show_plot=show_plot)
 
         elif plot and interactive and HAS_PLOTLY: # case with interactive == True and Plotly is installed
             cr_rejected_stack = np.sum(cr_rejected_locs, axis=0) # stack all located crs on top of each other
             stacked_exposure_time = sum(exposure_times)
             stack_plot(cr_rejected_stack, box_lower, box_upper, len(cr_rejected_locs), stacked_exposure_time,
-                       rootname, propid, plot_dir, interactive=interactive)
+                       rootname, propid, plot_dir, interactive=interactive, show_plot=show_plot)
             split_plot(cr_rejected_locs, box_lower, box_upper, len(cr_rejected_locs), exposure_times,
-                stacked_exposure_time, rootname, propid, plot_dir, interactive=interactive)
+                stacked_exposure_time, rootname, propid, plot_dir, interactive=interactive, show_plot=show_plot)
 
         if verbose: # This replicates the functionality from STIS ISR 2019-02 Appendix A
             print(f"\nFor {obs_id}")
@@ -375,26 +374,7 @@ def _generate_intervals(n, divisions):
     return result
 
 
-def _inline_render_plot(fig, is_interactive_backend, user_interactive_setting):
-    """Show a matplotlib figure if in an interactive environment.
-    """
-    if not (is_interactive_backend and user_interactive_setting):
-        return
-
-    try:
-        from IPython.display import display
-        shell = get_ipython().__class__.__name__
-        if shell == "ZMQInteractiveShell":  # Force a display if running in Jupyter instead of trying to render at the end of a cell
-            display(fig)
-            return
-    except Exception:
-        pass 
-
-    plt.show(block=False)
-
-
-def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, propid, plot_dir,
-               interactive):
+def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, propid, plot_dir, interactive, show_plot=False):
     """Creates a visualization of where CR pixels are in a stacked image
 
     Parameters
@@ -425,6 +405,9 @@ def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, prop
 
     interactive: bool 
         If True, uses Plotly to create an interactive zoomable html plot
+    
+    show_plot: bool
+        If True, show the generated plot in a notebook session in addition to saving. Default=False.
     """
     stack_shape = stack_image.shape
     max_stack_value = int(np.max(stack_image)) # This is usually equal to stack_shape,
@@ -445,48 +428,42 @@ def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, prop
 
     if not interactive:
         # create matplotlib image
-        is_interactive_backend = matplotlib.get_backend().lower() not in NON_INTERACTIVE_BACKENDS
-        user_interactive_setting = plt.isinteractive()
-        
-        if is_interactive_backend and user_interactive_setting:
-            plt.ioff()
-        try:
-            fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(9, 20*(9/41)),
-                gridspec_kw={'width_ratios': [1, 1, 0.05], 'height_ratios': [1]})
+        fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(9, 20*(9/41)),
+            gridspec_kw={'width_ratios': [1, 1, 0.05], 'height_ratios': [1]})
 
-            for axis in [ax1, ax2]:
-                axis.imshow(stack_image, interpolation='none', origin='lower',
-                    extent=(0, stack_shape[1], 0, stack_shape[0]), cmap=cmap, norm=norm, aspect='auto')
-                axis.step(np.arange(len(box_upper)), box_upper, color='#222222', where='post', lw=0.7, alpha=0.7, ls='--')
-                axis.step(np.arange(len(box_lower)), box_lower, color='#222222', where='post', lw=0.7, alpha=0.7, ls='--')
+        for axis in [ax1, ax2]:
+            axis.imshow(stack_image, interpolation='none', origin='lower',
+                extent=(0, stack_shape[1], 0, stack_shape[0]), cmap=cmap, norm=norm, aspect='auto')
+            axis.step(np.arange(len(box_upper)), box_upper, color='#222222', where='post', lw=0.7, alpha=0.7, ls='--')
+            axis.step(np.arange(len(box_lower)), box_lower, color='#222222', where='post', lw=0.7, alpha=0.7, ls='--')
 
-            ax1.set_title('Full image')
+        ax1.set_title('Full image')
 
-            # If it is a large enough image, zoom the 2nd subplot around the extraction box region
-            if ((stack_shape[0] - max(box_upper)) > 20) and (min(box_lower) > 20):
-                ax2.set_ylim([(min(box_lower)-20),(max(box_upper)+20)])
-                ax2.set_title('zoomed to 20 pixels above/below extraction box')
+        # If it is a large enough image, zoom the 2nd subplot around the extraction box region
+        if ((stack_shape[0] - max(box_upper)) > 20) and (min(box_lower) > 20):
+            ax2.set_ylim([(min(box_lower)-20),(max(box_upper)+20)])
+            ax2.set_title('zoomed to 20 pixels above/below extraction box')
 
-            # Otherwise just don't zoom in at all
-            else:
-                ax2.set_title('full image already 20 pixels above/below extraction box')
+        # Otherwise just don't zoom in at all
+        else:
+            ax2.set_title('full image already 20 pixels above/below extraction box')
 
-            cb = fig.colorbar(colormap.ScalarMappable(norm=norm, cmap=cmap), cax=ax3,
-                label='# times flagged as CR', ticks=np.arange(0, max_stack_value+1)+0.5)
-            cb.set_ticklabels(np.arange(0, max_stack_value+1))
+        cb = fig.colorbar(colormap.ScalarMappable(norm=norm, cmap=cmap), cax=ax3,
+            label='# times flagged as CR', ticks=np.arange(0, max_stack_value+1)+0.5)
+        cb.set_ticklabels(np.arange(0, max_stack_value+1))
 
-            fig.suptitle(f"CR flagged pixels in stacked image: {obs_id}\n Proposal {propid!s}, " \
-                        f"exposure time {texpt:.2f}, {split_num!s} subexposures")
-            fig.tight_layout()
+        fig.suptitle(f"CR flagged pixels in stacked image: {obs_id}\n Proposal {propid!s}, " \
+                    f"exposure time {texpt:.2f}, {split_num!s} subexposures")
+        fig.tight_layout()
 
-            plot_name = obs_id + '_stacked.png'
-            file_path = os.path.join(plot_dir, plot_name)
-            fig.savefig(file_path, dpi=150, bbox_inches='tight')
-            _inline_render_plot(fig, is_interactive_backend, user_interactive_setting) # show plot if in interactive env
-        finally:
+        plot_name = obs_id + '_stacked.png'
+        file_path = os.path.join(plot_dir, plot_name)
+        fig.savefig(file_path, dpi=150, bbox_inches='tight')
+       
+        if show_plot:
+            plt.show()
+        else:
             plt.close(fig)
-            if is_interactive_backend and user_interactive_setting:
-                plt.ion()
 
     else:
         # Create Plotly image
@@ -566,7 +543,7 @@ def stack_plot(stack_image, box_lower, box_upper, split_num, texpt, obs_id, prop
 
 
 def split_plot(splits, box_lower, box_upper, split_num, individual_exposure_times, texpt,
-               obs_id, propid, plot_dir, interactive):
+               obs_id, propid, plot_dir, interactive, show_plot=False):
     """Creates a visualization of where CR pixels are in each subexposure
 
     Parameters
@@ -600,6 +577,9 @@ def split_plot(splits, box_lower, box_upper, split_num, individual_exposure_time
 
     interactive: bool 
         If True, uses Plotly to create an interactive zoomable html plot
+
+    show_plot: bool
+        If True, show the generated plot in a notebook session in addition to saving. Default=False.
     """
     custom_cmap = colors.ListedColormap([
         'k', 'tab:orange', 'tab:blue', 'tab:green', 'tab:red', 'tab:cyan', 'tab:olive',
@@ -618,49 +598,44 @@ def split_plot(splits, box_lower, box_upper, split_num, individual_exposure_time
     row_value = int(nrows)
 
     if not interactive:
-        is_interactive_backend = matplotlib.get_backend().lower() not in NON_INTERACTIVE_BACKENDS
-        user_interactive_setting = plt.isinteractive()
-        
-        if is_interactive_backend and user_interactive_setting:
-            plt.ioff()
+        # create matplotlib image
+        fig, ax = plt.subplots(nrows=row_value, ncols=2, figsize=(9, nrows * 2))
+        ax = ax.flatten()
 
-        try:
-            fig, ax = plt.subplots(nrows=row_value, ncols=2, figsize=(9, nrows * 2))
-            ax = ax.flatten()
+        # Plot each subexposure with CR pixels a different color
+        for num, axis in enumerate(ax):
+            if num < len(splits):
+                axis.imshow(splits[num], interpolation='none', origin='lower',
+                    extent=(0, splits[num].shape[1], 0, splits[num].shape[0]),
+                    cmap=cmap, norm=norm, aspect='auto')
+                axis.step(np.arange(len(box_upper)), box_upper, color='#222222', where='post',
+                    lw=0.7, alpha=0.7, ls='--')
+                axis.step(np.arange(len(box_lower)), box_lower, color='#222222', where='post',
+                    lw=0.7, alpha=0.7, ls='--')
 
-            # Plot each subexposure with CR pixels a different color
-            for num, axis in enumerate(ax):
-                if num < len(splits):
-                    axis.imshow(splits[num], interpolation='none', origin='lower',
-                        extent=(0, splits[num].shape[1], 0, splits[num].shape[0]),
-                        cmap=cmap, norm=norm, aspect='auto')
-                    axis.step(np.arange(len(box_upper)), box_upper, color='#222222', where='post',
-                        lw=0.7, alpha=0.7, ls='--')
-                    axis.step(np.arange(len(box_lower)), box_lower, color='#222222', where='post',
-                        lw=0.7, alpha=0.7, ls='--')
-
-                    if ((splits[num].shape[0] - max(box_upper)) > 20) and (min(box_lower) > 20):
-                        axis.set_ylim([min(box_lower) - 20, max(box_upper) + 20])
-                        axis.set_title(f"zoomed subexposure {(num+1)!s}, exposure time {individual_exposure_times[num]!s}")
-
-                    else:
-                        axis.set_title(f"subexposure {(num + 1)!s}, exposure time {individual_exposure_times[num]!s}")
+                if ((splits[num].shape[0] - max(box_upper)) > 20) and (min(box_lower) > 20):
+                    axis.set_ylim([min(box_lower) - 20, max(box_upper) + 20])
+                    axis.set_title(f"zoomed subexposure {(num+1)!s}, exposure time {individual_exposure_times[num]!s}")
 
                 else:
-                    axis.set_axis_off()
+                    axis.set_title(f"subexposure {(num + 1)!s}, exposure time {individual_exposure_times[num]!s}")
 
-            fig.suptitle(f"CR flagged pixels in individual splits for: {obs_id}\n Proposal {propid!s}, " \
-                        f"total exposure time {texpt:.2f}, {split_num!s} subexposures")
-            fig.tight_layout()
+            else:
+                axis.set_axis_off()
 
-            plot_name = obs_id + '_splits.png'
-            file_path = os.path.join(plot_dir, plot_name)
-            fig.savefig(file_path, dpi=150, bbox_inches='tight')
-            _inline_render_plot(fig, is_interactive_backend, user_interactive_setting) # show plot if in interactive env
-        finally:
+        fig.suptitle(f"CR flagged pixels in individual splits for: {obs_id}\n Proposal {propid!s}, " \
+                    f"total exposure time {texpt:.2f}, {split_num!s} subexposures")
+        fig.tight_layout()
+
+        plot_name = obs_id + '_splits.png'
+        file_path = os.path.join(plot_dir, plot_name)
+        fig.savefig(file_path, dpi=150, bbox_inches='tight')
+        
+        if show_plot:
+            plt.show()
+        else:
             plt.close(fig)
-            if is_interactive_backend and user_interactive_setting:
-                plt.ion()    
+    
 
     else:
         subplot_titles = [f'zoomed subexposure {i+1}, exposure time {individual_exposure_times[i]}'
