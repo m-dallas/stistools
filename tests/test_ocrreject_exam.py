@@ -34,7 +34,7 @@ class TestOcrrejectExam(BaseSTIS):
                             'extr_fracs': array([0.36021205, 0.36063058]),
                             'outside_fracs': array([0.00883899, 0.00813034]),
                             'combined_ratio': 42.479135678716936,
-                            'combined_ratio_threshold': 1.2576072075255045,
+                            'combined_ratio_threshold': 1.4027214132251133,
                             'overflagged_stat': True}}
 
         resulting_output = ocrreject_exam('odvkl1040', data_dir=os.path.dirname(local_file))

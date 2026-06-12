@@ -30,16 +30,16 @@ __doc__ = """
 
     .. code-block:: python
 
-       [{'rootname': 'odvkl1040',
-       'n_splits': 2,
-       'detector_box_fraction' : 0.0068359375,
-       'n_cr_pix': array([11787, 11052]),
-       'n_total_cr_pix': 22839,
-       'extr_fracs': array([0.36021205, 0.36063058]),
-       'outside_fracs': array([0.00883899, 0.00813034]),
-       'combined_ratio': 42.479135678716936,
-       'combined_ratio_threshold': 1.2576072075255045,
-       'overflagged_stat': True}]
+        [{'rootname': 'odvkl1040',
+        'n_splits': 2,
+        'detector_box_fraction': 0.0068359375,
+        'n_cr_pix': array([11787, 11052]),
+        'n_total_cr_pix': 22839,
+        'extr_fracs': array([0.36021205, 0.36063058]),
+        'outside_fracs': array([0.00883899, 0.00813034]),
+        'combined_ratio': 42.479135678716936,
+        'combined_ratio_threshold': 1.4027214132251133,
+        'overflagged_stat': True}]
 
     .. image:: odvkl1040_stacked.png
       :width: 600
@@ -75,7 +75,7 @@ __doc__ = """
 
 __taskname__ = "ocrreject_exam"
 __version__  = "1.1"
-__vdate__    = "10-June-2026"
+__vdate__    = "12-June-2026"
 __author__   = "Matt Dallas, Joleen Carlberg, Sean Lockwood, STScI, December 2024."
 
 
